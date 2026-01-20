@@ -102,7 +102,7 @@ PARAMETER_DESCRIPTIONS = {
 class ConfigEditor(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("TreeDimension Config Editor")
+        self.title("Map Generation Configuration Editor")
         self.geometry("950x700")
         self.minsize(930, 500)
 
@@ -170,19 +170,19 @@ class ConfigEditor(tk.Tk):
         button_frame = tk.Frame(self, bg='#f0f0f0')
         button_frame.pack(fill="x", padx=10, pady=5)
         
-        # Button to generate data
-        generate_btn = tk.Button(button_frame, text="Generate Data", command=self.generate_data, 
-                               bg='#4CAF50', fg='white', font=("Arial", 10, "bold"), pady=5)
+        # Button to generate map
+        generate_btn = tk.Button(button_frame, text="Generate Map", command=self.generate_data, 
+                               bg='#4CAF50', font=("Arial", 10, "bold"), pady=5)
         generate_btn.pack(side="left", padx=(0, 5))
         
         # Button to save config
         save_btn = tk.Button(button_frame, text="Save Config", command=self.save_config,
-                           bg='#2196F3', fg='white', font=("Arial", 10, "bold"), pady=5)
+                           bg='#2196F3', font=("Arial", 10, "bold"), pady=5)
         save_btn.pack(side="left", padx=5)
         
         # Button to save config as
         save_as_btn = tk.Button(button_frame, text="Save Config As...", command=self.open_save_dialog,
-                              bg='#FF9800', fg='white', font=("Arial", 10, "bold"), pady=5)
+                              bg='#FF9800', font=("Arial", 10, "bold"), pady=5)
         save_as_btn.pack(side="left", padx=5)
 
     def get_dimension1_label(self, shape_type):
