@@ -1,8 +1,8 @@
-aoi_center_coords: 47.42103595201548, 10.985322244838923
+aoi_center_coords: 46.18303072113798, 10.900102259554119
 aoi_crs_epsg: ''
 aoi_dimension1_mm: 100
 aoi_dimension2_mm: 100
-aoi_name: Zugspitze
+aoi_name: CimaBrenta
 aoi_shape_type: hexagon
 generate_aoi: true
 generate_map: true

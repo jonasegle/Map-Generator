@@ -25,14 +25,15 @@ A Python-based tool for generating simple maps. Intended for grayscale laser eng
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.9+
 - Required Python packages:
-  - `tkinter` (GUI)
+  - `PySide6` (Qt GUI)
   - `matplotlib` (map rendering)
   - `shapely` (geometry operations)
   - `pyproj` (coordinate transformations)
   - `pyshp` (shapefile handling)
   - `PyYAML` (configuration)
+  - `requests` (OpenStreetMap API)
 
 ### Installation
 
@@ -44,7 +45,7 @@ A Python-based tool for generating simple maps. Intended for grayscale laser eng
 
 2. Install dependencies:
    ```bash
-   pip install matplotlib shapely pyproj pyshp pyyaml
+   python3 -m pip install -r requirements.txt
    ```
 
 ### Usage
@@ -52,8 +53,11 @@ A Python-based tool for generating simple maps. Intended for grayscale laser eng
 #### Basics
 1. Launch the graphical user interface:
    ```bash
-   python src/ui.py
+   python3 src/ui.py
    ```
+
+   Map generation runs in the background. The window stays responsive and reports
+   progress and any failures; configuration controls are disabled until it finishes.
 
 2. Configure your map:
    - Set the center coordinates (latitude, longitude) and choose the AOI shape and dimensions
@@ -62,6 +66,24 @@ A Python-based tool for generating simple maps. Intended for grayscale laser eng
    - Configure styling options (fonts, colors, scale)
 
 3. Generate your map and find the output in the `outputs/` folder
+
+#### Standalone shapefile generator
+
+```bash
+python3 src/generate_shapefile.py
+```
+
+Choose a shape, coordinates, EPSG code, and dimensions; optionally export GeoJSON.
+
+#### Command-line map generation
+
+```bash
+python3 src/generate_map.py --config src/config/default_config.yaml
+```
+
+Launch the GUI scripts from any directory using their absolute paths. Relative
+paths in GUI configurations are resolved from the repository root. The map CLI
+continues to resolve relative paths from the current working directory.
 
 #### Bulk generation
 
@@ -98,4 +120,12 @@ Map Generator/
 ├── inputs/                   # Input geometry files
 ├── outputs/                  # Generated maps and data
 └── assets/                   # Documentation images
+```
+
+## Tests
+
+Run the UI and worker tests without a display or network access:
+
+```bash
+QT_QPA_PLATFORM=offscreen python3 -m unittest discover -s tests -v
 ```

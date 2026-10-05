@@ -158,8 +158,7 @@ class OpenStreetMapAPI():
         self.transformer_geo_to_proj = Transformer.from_crs("EPSG:4326", target_epsg, always_xy=True)
         # Create a session with retry/backoff and a polite User-Agent for Overpass
         self.session = requests.Session()
-        # Please replace the email with your contact info if you plan to run many queries
-        self.session.headers.update({"User-Agent": "Map Generator/1.0 (+your-email@example.com)"})
+        self.session.headers.update({"User-Agent": "MapGenerator/1.0 (contact: jonas25.egle@gmail.com)"})
 
         # Retry strategy: retry on connection errors and on server errors including 429/504
         retry = Retry(
@@ -177,7 +176,7 @@ class OpenStreetMapAPI():
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
 
-    def _post_overpass(self, query, overpass_url="http://overpass-api.de/api/interpreter", timeout=60, max_attempts=6):
+    def _post_overpass(self, query, overpass_url="https://overpass-api.de/api/interpreter", timeout=60, max_attempts=6):
         """
         Helper to POST to Overpass with polite retries and exponential backoff with jitter.
         Handles 429 (rate limit) and 504 (gateway timeout) specially and respects Retry-After.
@@ -233,7 +232,7 @@ class OpenStreetMapAPI():
         Fetches data of types with given key and list of values using Overpass API
         """
         # Overpass API endpoint
-        overpass_url = "http://overpass-api.de/api/interpreter"
+        overpass_url = "https://overpass-api.de/api/interpreter"
 
         # Query to get nodes with specified key and values
         values_str = "|".join(values)
@@ -446,7 +445,7 @@ class OpenStreetMapAPI():
         """
         min_lat, min_lon, max_lat, max_lon = bounds
         # Overpass API endpoint
-        overpass_url = "http://overpass-api.de/api/interpreter"
+        overpass_url = "https://overpass-api.de/api/interpreter"
     
         waterway_types = {
             "river": river,
@@ -512,7 +511,7 @@ class OpenStreetMapAPI():
         Fetches streets (ways with a highway tag) within a bounding box using Overpass API
         """
         min_lat, min_lon, max_lat, max_lon = bounds
-        overpass_url = "http://overpass-api.de/api/interpreter"
+        overpass_url = "https://overpass-api.de/api/interpreter"
 
         highway_types = {
             "motorway": motorway,
@@ -631,7 +630,7 @@ class OpenStreetMapAPI():
         Returns a list of dicts with keys: name, admin_level (if present), latitude, longitude
         """
         min_lat, min_lon, max_lat, max_lon = bounds
-        overpass_url = "http://overpass-api.de/api/interpreter"
+        overpass_url = "https://overpass-api.de/api/interpreter"
 
         settlement_types = {
             "city": city,

@@ -3,8 +3,6 @@ from shapely.geometry import Point, box, Polygon
 from shapely.ops import transform
 import pyproj
 from pyproj import CRS, Transformer
-import tkinter as tk
-from tkinter import filedialog
 import math
 import json
 
@@ -117,116 +115,96 @@ def generate_shapefile(center_lon, center_lat, output_crs_epsg, dimension1_mm, d
             json.dump(geojson, f, indent=2)
         print(f'Created GeoJSON file (WGS84): {geojson_path}')
 
+def create_shapefile_window():
+    """Create the standalone Qt window without coupling geometry imports to Qt."""
+    import math
+    from pathlib import Path
+    from PySide6.QtWidgets import (
+        QCheckBox, QComboBox, QFileDialog, QFormLayout, QLabel, QLineEdit,
+        QMessageBox, QPushButton, QWidget,
+    )
+
+    class ShapefileWindow(QWidget):
+        def __init__(self):
+            super().__init__()
+            self.setWindowTitle('Generate Shapefile')
+            self.form = QFormLayout(self)
+            self.shape = QComboBox()
+            self.shape.addItems(['circle', 'square', 'rectangle', 'hexagon'])
+            self.coords = QLineEdit()
+            self.crs = QLineEdit('25832')
+            self.dimension1 = QLineEdit()
+            self.dimension2 = QLineEdit()
+            self.scale = QLineEdit('100000')
+            self.dimension1_label = QLabel()
+            self.dimension2_label = QLabel('Side Length Y (mm):')
+            self.geojson = QCheckBox('Also save as GeoJSON (WGS84)')
+            self.form.addRow('Shape Type:', self.shape)
+            self.form.addRow('Coordinates (lat, lon):', self.coords)
+            self.form.addRow('Output CRS EPSG:', self.crs)
+            self.form.addRow(self.dimension1_label, self.dimension1)
+            self.form.addRow(self.dimension2_label, self.dimension2)
+            self.form.addRow('Scale:', self.scale)
+            self.form.addRow(self.geojson)
+            self.generate_button = QPushButton('Generate Shapefile')
+            self.form.addRow(self.generate_button)
+            self.shape.currentTextChanged.connect(self.update_fields)
+            self.generate_button.clicked.connect(self.submit)
+            self.update_fields()
+
+        def update_fields(self, *_):
+            shape = self.shape.currentText()
+            self.dimension1_label.setText({
+                'circle': 'Radius (mm):', 'square': 'Side Length (mm):',
+                'rectangle': 'Side Length X (mm):', 'hexagon': 'Inner Circle Radius (mm):',
+            }[shape])
+            self.form.setRowVisible(self.dimension2, shape == 'rectangle')
+
+        def submit(self):
+            try:
+                lat, lon = [float(v.strip()) for v in self.coords.text().split(',')]
+                epsg = int(self.crs.text())
+                shape = self.shape.currentText()
+                dimension1 = float(self.dimension1.text())
+                dimension2 = float(self.dimension2.text()) if shape == 'rectangle' else None
+                scale = float(self.scale.text())
+                if not all(math.isfinite(v) for v in (lat, lon, dimension1, scale)):
+                    raise ValueError('Values must be finite.')
+                if not -90 <= lat <= 90 or not -180 <= lon <= 180:
+                    raise ValueError('Coordinates are outside latitude/longitude bounds.')
+                if dimension1 <= 0 or scale <= 0 or (dimension2 is not None and (not math.isfinite(dimension2) or dimension2 <= 0)):
+                    raise ValueError('Dimensions and scale must be positive.')
+            except ValueError as exc:
+                QMessageBox.critical(self, 'Invalid parameters', str(exc))
+                return
+            filename, _ = QFileDialog.getSaveFileName(self, 'Save Shapefile', '', 'Shapefiles (*.shp)')
+            if not filename:
+                return
+            if not filename.lower().endswith('.shp'):
+                filename += '.shp'
+            try:
+                generate_shapefile(lon, lat, epsg, dimension1, dimension2, scale,
+                                   filename, shape, self.geojson.isChecked())
+            except Exception as exc:
+                QMessageBox.critical(self, 'Generation failed', str(exc))
+                return
+            QMessageBox.information(self, 'Success', f'Shapefile saved to:\n{Path(filename).resolve()}')
+            self.close()
+
+    return ShapefileWindow()
+
+
 def create_ui():
-    def update_fields(*args):
-        shape_type = shape_var.get()
-        if shape_type == 'circle':
-            label_radius.config(text="Radius (mm):")
-            label_radius.grid(row=3, column=0)
-            entry_radius.grid(row=3, column=1)
-            label_side_length.grid_remove()
-            entry_side_length.grid_remove()
-            label_side_length_x.grid_remove()
-            entry_side_length_x.grid_remove()
-            label_side_length_y.grid_remove()
-            entry_side_length_y.grid_remove()
-        elif shape_type == 'square':
-            label_side_length.config(text="Side Length (mm):")
-            label_side_length.grid(row=3, column=0)
-            entry_side_length.grid(row=3, column=1)
-            label_radius.grid_remove()
-            entry_radius.grid_remove()
-            label_side_length_x.grid_remove()
-            entry_side_length_x.grid_remove()
-            label_side_length_y.grid_remove()
-            entry_side_length_y.grid_remove()
-        elif shape_type == 'rectangle':
-            label_side_length_x.config(text="Side Length X (mm):")
-            label_side_length_y.config(text="Side Length Y (mm):")
-            label_side_length_x.grid(row=3, column=0)
-            entry_side_length_x.grid(row=3, column=1)
-            label_side_length_y.grid(row=4, column=0)
-            entry_side_length_y.grid(row=4, column=1)
-            label_radius.grid_remove()
-            entry_radius.grid_remove()
-            label_side_length.grid_remove()
-            entry_side_length.grid_remove()
-        elif shape_type == 'hexagon':
-            label_radius.config(text="Inner Circle Radius (mm):")
-            label_radius.grid(row=3, column=0)
-            entry_radius.grid(row=3, column=1)
-            label_side_length.grid_remove()
-            entry_side_length.grid_remove()
-            label_side_length_x.grid_remove()
-            entry_side_length_x.grid_remove()
-            label_side_length_y.grid_remove()
-            entry_side_length_y.grid_remove()
+    import sys
+    from PySide6.QtWidgets import QApplication
+    existing_app = QApplication.instance()
+    app = existing_app or QApplication(sys.argv)
+    window = create_shapefile_window()
+    window.show()
+    if existing_app is None:
+        app.exec()
+    return window
 
-    def submit():
-        coords = entry_coords.get().split(',')
-        center_lon = float(coords[1].strip())
-        center_lat = float(coords[0].strip())
-        output_crs_epsg = int(entry_crs.get())
-        shape_type = shape_var.get()
-        output_filepath = filedialog.asksaveasfilename(defaultextension=".shp", filetypes=[("Shapefiles", "*.shp")])
-        if shape_type == 'circle' or shape_type == 'hexagon':
-            dimension1_mm = float(entry_radius.get())
-            dimension2_mm = None
-        elif shape_type == 'square':
-            dimension1_mm = float(entry_side_length.get())
-            dimension2_mm = None
-        elif shape_type == 'rectangle':
-            dimension1_mm = float(entry_side_length_x.get())
-            dimension2_mm = float(entry_side_length_y.get())
-        scale = float(entry_scale.get())
-        save_geojson = geojson_var.get()
-        generate_shapefile(center_lon, center_lat, output_crs_epsg, dimension1_mm, dimension2_mm, scale, output_filepath, shape_type, save_geojson)
-        root.destroy()
 
-    root = tk.Tk()
-    root.title("Generate Shapefile")
-
-    tk.Label(root, text="Shape Type:").grid(row=0)
-    shape_var = tk.StringVar(value='circle')
-    shape_menu = tk.OptionMenu(root, shape_var, 'circle', 'square', 'rectangle', 'hexagon')
-    shape_menu.grid(row=0, column=1)
-
-    tk.Label(root, text="Coordinates (lat, lon):").grid(row=1)
-    tk.Label(root, text="Output CRS EPSG:").grid(row=2)
-    label_radius = tk.Label(root, text="Radius (mm):")
-    label_side_length = tk.Label(root, text="Side Length (mm):")
-    label_side_length_x = tk.Label(root, text="Side Length X (mm):")
-    label_side_length_y = tk.Label(root, text="Side Length Y (mm):")
-    tk.Label(root, text="Scale:").grid(row=5)
-
-    entry_coords = tk.Entry(root)
-    entry_crs = tk.Entry(root)
-    entry_crs.insert(0, "25832")
-    entry_radius = tk.Entry(root)
-    entry_side_length = tk.Entry(root)
-    entry_side_length_x = tk.Entry(root)
-    entry_side_length_y = tk.Entry(root)
-    entry_scale = tk.Entry(root)
-    entry_scale.insert(0, "100000")
-
-    entry_coords.grid(row=1, column=1)
-    entry_crs.grid(row=2, column=1)
-    entry_radius.grid(row=3, column=1)
-    entry_scale.grid(row=5, column=1)
-    
-    # Add checkbox for GeoJSON export
-    geojson_var = tk.BooleanVar(value=False)
-    tk.Checkbutton(root, text="Also save as GeoJSON (WGS84)", variable=geojson_var).grid(row=6, column=0, columnspan=2)
-
-    shape_var.trace('w', update_fields)
-
-    # Initialize the fields based on the default shape type
-    update_fields()
-
-    tk.Button(root, text="Generate Shapefile", command=submit).grid(row=7, column=0, columnspan=2)
-
-    root.mainloop()
-
-# Example usage
-if __name__ == "__main__":
+if __name__ == '__main__':
     create_ui()
