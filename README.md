@@ -67,6 +67,25 @@ A Python-based tool for generating simple maps. Intended for grayscale laser eng
 
 3. Generate your map and find the output in the `outputs/` folder
 
+#### GPS track overlay
+
+Select an optional `gpx_file` in Input/Output Settings to draw its track segments
+as solid black lines. Set `gpx_line_thickness` in Map Generation to control the
+width in points (default: 1.5; 1 point = 1/72 inch). Width must be positive and
+finite. Tracks are clipped to the AOI and do not change the map extent.
+
+```yaml
+gpx_file: /path/to/track.gpx
+gpx_line_thickness: 1.5
+```
+
+An empty path disables the overlay. GPX track segments are supported; waypoints,
+elevation, timestamps, and route-only files are not drawn. Invalid files are
+reported before OpenStreetMap requests. The same overlay is used for bulk maps.
+Older configs receive the new defaults in the UI; legacy `gpxfile` is used only
+when `gpx_file` is absent. GUI paths resolve from the repository root; CLI paths
+resolve from the current working directory.
+
 #### Standalone shapefile generator
 
 ```bash

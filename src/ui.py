@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from generation_worker import GenerationWorker, PROJECT_ROOT
+from gpx_track import DEFAULT_LINE_THICKNESS, validate_line_thickness
 
 
 PARAMETER_DESCRIPTIONS = {
@@ -26,7 +27,8 @@ PARAMETER_DESCRIPTIONS = {
     "opentopo_api_key": "Your OpenTopography API key (get from https://portal.opentopography.org)",
     "prefer_etrs89_in_europe": "Use ETRS89 (EPSG:258xx) for European coordinates instead of WGS84 UTM",
     "output_folder": "Output folder where generated map images will be saved",
-    "gpxfile": "GPS track file (.gpx) for laser engraving paths",
+    "gpx_file": "Optional GPX track file (.gpx) rendered as a black line on the map",
+    "gpx_line_thickness": "GPS track line width in points (1 point = 1/72 inch). Must be positive.",
     "scale": "Map scale factor (e.g., 50000 = 1:50,000). Higher values = smaller physical output",
     "add_base_height": "Base thickness added to the bottom of the model (in mm)",
     "variable_base_height": "When true, adjusts base height dynamically based on terrain variation",
@@ -62,10 +64,10 @@ PARAMETER_DESCRIPTIONS = {
 }
 
 PARAM_GROUPS = {
-            "Input/Output Settings": ["input_file", "input_folder", "use_bulk", "rasterfile", "output_folder", "gpxfile"],
+            "Input/Output Settings": ["input_file", "input_folder", "use_bulk", "rasterfile", "output_folder", "gpx_file"],
             "AOI Generation": ["generate_aoi", "aoi_name", "aoi_shape_type", "aoi_center_coords", "aoi_crs_epsg", "aoi_dimension1_mm", "aoi_dimension2_mm", "save_generated_shapefile", "save_geojson"],
             "Map Generation": [
-                "generate_map",
+                "generate_map", "gpx_line_thickness",
                 "map_filename", "map_dpi", "map_font_family",
                 "map_font_size", "map_fontweight", "map_x_inverted", "map_keep_markers",
                 "map_attempt_label_repositioning",
@@ -181,6 +183,8 @@ class ConfigEditor(QMainWindow):
             # Restore the selection associated with the displayed configuration.
             self.config_dropdown.setCurrentText(getattr(self, 'loaded_filename', ''))
             return
+        data.setdefault('gpx_file', data.get('gpxfile', ''))
+        data.setdefault('gpx_line_thickness', DEFAULT_LINE_THICKNESS)
         self.loaded_filename = filename
         self.config_data = data
         self.value_types = {key: type(value) for key, value in data.items()}
@@ -222,7 +226,9 @@ class ConfigEditor(QMainWindow):
         label.setToolTip(tooltip)
         if key.startswith('aoi_dimension'):
             self.dimension_labels[key] = label
-        if isinstance(value, bool):
+        if key == 'gpx_line_thickness':
+            widget = QLineEdit(str(value))
+        elif isinstance(value, bool):
             widget = QCheckBox()
             widget.setChecked(value)
             widget.toggled.connect(self.update_conditional_fields)
@@ -238,7 +244,7 @@ class ConfigEditor(QMainWindow):
             widget = QLineEdit('' if value is None else str(value))
         widget.setToolTip(tooltip)
         self.widgets[key] = widget
-        if key in ('input_file', 'rasterfile', 'gpxfile', 'input_folder', 'output_folder'):
+        if key in ('input_file', 'rasterfile', 'gpx_file', 'input_folder', 'output_folder'):
             row = QWidget()
             row_layout = QHBoxLayout(row)
             row_layout.setContentsMargins(0, 0, 0, 0)
@@ -281,7 +287,7 @@ class ConfigEditor(QMainWindow):
         else:
             filters = {'input_file': 'Geometry (*.shp *.geojson);;All files (*)',
                        'rasterfile': 'TIFF files (*.tif *.tiff);;All files (*)',
-                       'gpxfile': 'GPX files (*.gpx);;All files (*)'}
+                       'gpx_file': 'GPX files (*.gpx);;All files (*)'}
             selected, _ = QFileDialog.getOpenFileName(self, 'Select File', str(initial), filters[key])
         if selected:
             path = Path(selected)
@@ -300,7 +306,9 @@ class ConfigEditor(QMainWindow):
             text = widget.currentText() if isinstance(widget, QComboBox) else widget.text()
             original_type = self.value_types[key]
             try:
-                if original_type is int:
+                if key == 'gpx_line_thickness':
+                    value = validate_line_thickness(text)
+                elif original_type is int:
                     value = int(text)
                 elif original_type is float:
                     value = float(text)

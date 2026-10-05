@@ -7,6 +7,8 @@ import yaml
 import argparse
 
 from map_class import Map
+from gpx_track import (DEFAULT_LINE_THICKNESS, read_gpx_segments,
+                       project_gpx_segments, validate_line_thickness)
 from openstreetmap_api import OpenStreetMapAPI
 
 from pyproj import CRS
@@ -66,6 +68,12 @@ def generate_map(config):
 
     print(f"Bounding box in projected coordinates: ({min_easting}, {min_northing}) to ({max_easting}, {max_northing})")
     print(f"Bounding box in geographical coordinates: ({min_lat}, {min_lon}) to ({max_lat}, {max_lon})")
+
+    gpx_file = config.get('gpx_file', config.get('gpxfile', ''))
+    gpx_width = validate_line_thickness(config.get('gpx_line_thickness', DEFAULT_LINE_THICKNESS))
+    gps_segments = []
+    if gpx_file and str(gpx_file).strip():
+        gps_segments = project_gpx_segments(read_gpx_segments(gpx_file), shapefile_crs)
 
     # request data from OpenStreetMap API
     print("Requesting data from OpenStreetMap API...")
@@ -178,6 +186,9 @@ def generate_map(config):
             color=config.get("map_water_color", "0.75"),
             draw_inners=True,
         )
+
+    if gps_segments:
+        map_instance.draw_gps_tracks(gps_segments, line_thickness=gpx_width)
 
     if config.get("map_bounding_shape", False):
         map_instance.draw_bounding_shape()

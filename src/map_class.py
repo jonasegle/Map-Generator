@@ -2,6 +2,8 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import matplotlib.patheffects as path_effects
 from matplotlib.transforms import Bbox
+from matplotlib.patches import Polygon as PolygonPatch
+from gpx_track import validate_line_thickness
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import matplotlib.image as mpimg
 
@@ -87,6 +89,27 @@ class Map(object):
             x = self.width - x
         return x, y
     
+    def draw_gps_tracks(self, segments, line_thickness=1.5):
+        """Draw projected track segments, clipped to the AOI, below text labels."""
+        width = validate_line_thickness(line_thickness)
+        clip = None
+        if self.bounding_shape:
+            boundary = [self.projected_coordinates_to_map_coordinates(x, y)
+                        for x, y in self.bounding_shape]
+            clip = PolygonPatch(boundary, closed=True, transform=self.ax.transData)
+        artists = []
+        for segment in segments:
+            coords = [self.projected_coordinates_to_map_coordinates(x, y) for x, y in segment]
+            if len(coords) < 2:
+                continue
+            xs, ys = zip(*coords)
+            line, = self.ax.plot(xs, ys, color='black', linewidth=width,
+                                 zorder=2.5, solid_capstyle='round')
+            if clip is not None:
+                line.set_clip_path(clip)
+            artists.append(line)
+        return artists
+
     def is_point_in_bounding_shape(self, point: Tuple[float, float]) -> bool:
         if not self.bounding_shape:
             return True

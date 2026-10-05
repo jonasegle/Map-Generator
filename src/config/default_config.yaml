@@ -6,6 +6,8 @@ aoi_name: CimaBrenta
 aoi_shape_type: hexagon
 generate_aoi: true
 generate_map: true
+gpx_file: ''
+gpx_line_thickness: 1.5
 input_file: ''
 input_folder: ''
 map_attempt_label_repositioning: true
