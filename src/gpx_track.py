@@ -56,3 +56,29 @@ def project_gpx_segments(segments, target_crs):
             raise ValueError('GPX coordinates could not be projected into the map CRS.')
         projected.append(points)
     return projected
+
+
+def compute_gpx_center(filename, target_crs=None, prefer_etrs89=False):
+    """Return (latitude, longitude) of the projected track bounding-box midpoint."""
+    from utm_finder import (
+        get_utm_zone_from_lon, is_in_norway_special_zone,
+        is_in_svalbard_special_zone, _get_epsg_from_zone,
+    )
+    segments = read_gpx_segments(filename)
+    if target_crs is None or str(target_crs).strip().lower() in ('', 'none'):
+        points = [point for segment in segments for point in segment]
+        lon = (min(p[0] for p in points) + max(p[0] for p in points)) / 2
+        lat = (min(p[1] for p in points) + max(p[1] for p in points)) / 2
+        zone = (is_in_svalbard_special_zone(lat, lon)
+                or is_in_norway_special_zone(lat, lon)
+                or get_utm_zone_from_lon(lon))
+        target_crs = _get_epsg_from_zone(zone, 'north' if lat >= 0 else 'south',
+                                        prefer_etrs89, lat, lon)
+    projected = project_gpx_segments(segments, target_crs)
+    points = [point for segment in projected for point in segment]
+    x = (min(p[0] for p in points) + max(p[0] for p in points)) / 2
+    y = (min(p[1] for p in points) + max(p[1] for p in points)) / 2
+    lon, lat = Transformer.from_crs(target_crs, 'EPSG:4326', always_xy=True).transform(x, y, errcheck=True)
+    if not math.isfinite(lat) or not math.isfinite(lon):
+        raise ValueError('GPX center could not be transformed to latitude/longitude.')
+    return lat, lon

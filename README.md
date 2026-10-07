@@ -79,6 +79,11 @@ gpx_file: /path/to/track.gpx
 gpx_line_thickness: 1.5
 ```
 
+To center the AOI on a track, click **Compute GPX Center** below the GPX selector.
+Copy the selected `latitude, longitude` result into `aoi_center_coords`. The
+calculation uses the track's bounding box in the selected AOI CRS (automatic UTM
+when blank); it leaves the scale, dimensions, and configuration unchanged.
+
 An empty path disables the overlay. GPX track segments are supported; waypoints,
 elevation, timestamps, and route-only files are not drawn. Invalid files are
 reported before OpenStreetMap requests. The same overlay is used for bulk maps.

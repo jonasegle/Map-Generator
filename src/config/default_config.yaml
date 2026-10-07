@@ -1,19 +1,19 @@
-aoi_center_coords: 46.18303072113798, 10.900102259554119
+aoi_center_coords: 46.18400073799715, 10.889618437480832
 aoi_crs_epsg: ''
 aoi_dimension1_mm: 100
 aoi_dimension2_mm: 100
 aoi_name: CimaBrenta
-aoi_shape_type: hexagon
+aoi_shape_type: square
 generate_aoi: true
 generate_map: true
-gpx_file: ''
+gpx_file: /Users/jonasegle/Downloads/Brenta_Runde.gpx
 gpx_line_thickness: 1.5
 input_file: ''
 input_folder: ''
 map_attempt_label_repositioning: true
 map_city: true
 map_dpi: 300
-map_filename: Zugspitze.png
+map_filename: CimaBrenta-Square.png
 map_font_family: Arial
 map_font_size: 7
 map_fontweight: bold
@@ -75,5 +75,5 @@ output_folder: outputs/Bergmodelle
 prefer_etrs89_in_europe: true
 save_generated_shapefile: false
 save_geojson: true
-scale: 100000
+scale: 60000
 use_bulk: false

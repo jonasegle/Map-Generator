@@ -55,6 +55,7 @@ class EditorTests(unittest.TestCase):
 
     def test_load_edit_and_save_preserve_types_and_hidden_fields(self):
         self.window.widgets['map_dpi'].setText('400')
+        self.window.widgets['scale'].setText('50000')
         self.window.widgets['map_font_size'].setText('9')
         self.window.widgets['map_peak_label_padding_cm'].setText('0.25')
         self.window.widgets['map_water_color'].setText('0.75')
@@ -64,6 +65,8 @@ class EditorTests(unittest.TestCase):
         self.window.save_config()
         saved = yaml.safe_load((self.folder / 'default.yaml').read_text())
         self.assertEqual(saved['map_dpi'], 400)
+        self.assertEqual(saved['scale'], 50000)
+        self.assertIs(type(saved['scale']), int)
         self.assertIs(type(saved['map_dpi']), int)
         self.assertIs(type(saved['map_peak_label_padding_cm']), float)
         self.assertIs(type(saved['map_water_color']), str)
@@ -72,6 +75,10 @@ class EditorTests(unittest.TestCase):
 
     def test_invalid_numeric_edits_do_not_save_or_generate(self):
         before = (self.folder / 'default.yaml').read_text()
+        for value in ('0', '-100', 'bad'):
+            self.window.widgets['scale'].setText(value)
+            self.assertFalse(self.window.commit_fields())
+        self.window.widgets['scale'].setText(str(self.config['scale']))
         self.window.widgets['map_dpi'].setText('bad')
         self.window.save_config()
         self.window.generate_data()
@@ -154,6 +161,7 @@ class EditorTests(unittest.TestCase):
         timer.start(5)
         with patch.object(generation, 'run_generation', side_effect=slow_run):
             self.window.widgets['map_dpi'].setText('450')
+            self.window.widgets['scale'].setText('25000')
             self.window.generate_data()
             self.window.generate_data()
             self.assertFalse(self.window.actions.isEnabled())
@@ -170,6 +178,7 @@ class EditorTests(unittest.TestCase):
         self.assertGreater(len(beats), 3)
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0]['map_dpi'], 450)
+        self.assertEqual(calls[0]['scale'], 25000)
         self.assertEqual(self.window.widgets['input_file'].text(), 'inputs/saved.shp')
 
     def test_background_failure_recovers_controls(self):

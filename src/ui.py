@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from generation_worker import GenerationWorker, PROJECT_ROOT
-from gpx_track import DEFAULT_LINE_THICKNESS, validate_line_thickness
+from gpx_track import DEFAULT_LINE_THICKNESS, validate_line_thickness, compute_gpx_center
 
 
 PARAMETER_DESCRIPTIONS = {
@@ -29,7 +29,7 @@ PARAMETER_DESCRIPTIONS = {
     "output_folder": "Output folder where generated map images will be saved",
     "gpx_file": "Optional GPX track file (.gpx) rendered as a black line on the map",
     "gpx_line_thickness": "GPS track line width in points (1 point = 1/72 inch). Must be positive.",
-    "scale": "Map scale factor (e.g., 50000 = 1:50,000). Higher values = smaller physical output",
+    "scale": "Map scale denominator: 100000 means 1:100,000 (1 cm = 1 km). Applies to AOI dimensions and all map coordinates, including GPX tracks. Must be positive.",
     "add_base_height": "Base thickness added to the bottom of the model (in mm)",
     "variable_base_height": "When true, adjusts base height dynamically based on terrain variation",
     "height_scale": "Height scaling factor when variable_base_height is enabled (higher = more compressed)",
@@ -65,7 +65,7 @@ PARAMETER_DESCRIPTIONS = {
 
 PARAM_GROUPS = {
             "Input/Output Settings": ["input_file", "input_folder", "use_bulk", "rasterfile", "output_folder", "gpx_file"],
-            "AOI Generation": ["generate_aoi", "aoi_name", "aoi_shape_type", "aoi_center_coords", "aoi_crs_epsg", "aoi_dimension1_mm", "aoi_dimension2_mm", "save_generated_shapefile", "save_geojson"],
+            "AOI Generation": ["generate_aoi", "aoi_name", "aoi_shape_type", "aoi_center_coords", "aoi_crs_epsg", "scale", "aoi_dimension1_mm", "aoi_dimension2_mm", "save_generated_shapefile", "save_geojson"],
             "Map Generation": [
                 "generate_map", "gpx_line_thickness",
                 "map_filename", "map_dpi", "map_font_family",
@@ -221,7 +221,7 @@ class ConfigEditor(QMainWindow):
         self.update_conditional_fields()
 
     def create_parameter_widget(self, form, key, value):
-        label = QLabel(f'{key}:')
+        label = QLabel('scale (1:N):' if key == 'scale' else f'{key}:')
         tooltip = PARAMETER_DESCRIPTIONS.get(key, '')
         label.setToolTip(tooltip)
         if key.startswith('aoi_dimension'):
@@ -244,6 +244,8 @@ class ConfigEditor(QMainWindow):
             widget = QLineEdit('' if value is None else str(value))
         widget.setToolTip(tooltip)
         self.widgets[key] = widget
+        if key == 'aoi_crs_epsg':
+            widget.textChanged.connect(self.clear_gpx_center)
         if key in ('input_file', 'rasterfile', 'gpx_file', 'input_folder', 'output_folder'):
             row = QWidget()
             row_layout = QHBoxLayout(row)
@@ -255,8 +257,42 @@ class ConfigEditor(QMainWindow):
             if key == 'input_folder':
                 self.input_folder_row = row
             form.addRow(label, row)
+            if key == 'gpx_file':
+                self.gpx_center_button = QPushButton('Compute GPX Center')
+                self.gpx_center_button.clicked.connect(self.compute_gpx_center)
+                self.gpx_center_result = QLineEdit()
+                self.gpx_center_result.setReadOnly(True)
+                self.gpx_center_result.setPlaceholderText('Copy into aoi_center_coords')
+                self.gpx_center_result.setToolTip('Center of the track bounds in the AOI CRS. Scale and size stay unchanged.')
+                form.addRow(self.gpx_center_button)
+                form.addRow('GPX center (lat, lon):', self.gpx_center_result)
+                widget.textChanged.connect(self.clear_gpx_center)
         else:
             form.addRow(label, widget)
+
+    def clear_gpx_center(self, *_):
+        if hasattr(self, 'gpx_center_result'):
+            self.gpx_center_result.clear()
+
+    def compute_gpx_center(self):
+        self.clear_gpx_center()
+        try:
+            filename = self.widgets['gpx_file'].text().strip()
+            if not filename:
+                raise ValueError('Select a GPX file first.')
+            path = Path(filename)
+            if not path.is_absolute():
+                path = PROJECT_ROOT / path
+            crs_widget = self.widgets.get('aoi_crs_epsg')
+            epsg_text = crs_widget.text().strip() if crs_widget else str(self.config_data.get('aoi_crs_epsg') or '')
+            epsg = None if epsg_text.lower() in ('', 'none') else int(epsg_text)
+            lat, lon = compute_gpx_center(path, epsg, self.config_data.get('prefer_etrs89_in_europe', False))
+        except Exception as exc:
+            self.show_error('Cannot compute GPX center', str(exc))
+            return
+        self.gpx_center_result.setText(f'{lat:.8f}, {lon:.8f}')
+        self.gpx_center_result.setFocus()
+        self.gpx_center_result.selectAll()
 
     def update_conditional_fields(self, *_):
         bulk = self.widgets.get('use_bulk')
@@ -334,6 +370,8 @@ class ConfigEditor(QMainWindow):
                     value = None if text.strip().lower() in ('', 'none', 'null') else yaml.safe_load(text)
                 else:
                     value = text
+                if key == 'scale' and (not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0):
+                    raise ValueError('scale must be a positive, finite number')
                 updated[key] = value
             except (ValueError, TypeError, yaml.YAMLError) as exc:
                 self.show_error('Invalid configuration value', f'{key}: {exc}')
