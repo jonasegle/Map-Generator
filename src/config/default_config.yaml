@@ -1,4 +1,4 @@
-aoi_center_coords: 46.18400073799715, 10.889618437480832
+aoi_center_coords: 46.18066035, 10.87583638
 aoi_crs_epsg: ''
 aoi_dimension1_mm: 100
 aoi_dimension2_mm: 100
@@ -71,6 +71,7 @@ map_waterway_river: true
 map_waterway_stream: false
 map_waterways: true
 map_x_inverted: false
+osm_cache_enabled: true
 output_folder: outputs/Bergmodelle
 prefer_etrs89_in_europe: true
 save_generated_shapefile: false

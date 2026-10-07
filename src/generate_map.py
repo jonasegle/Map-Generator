@@ -13,7 +13,7 @@ from openstreetmap_api import OpenStreetMapAPI
 
 from pyproj import CRS
 
-def generate_map(config):
+def generate_map(config, force_refresh=False):
     # Read the shapefile to get the projected coordinates
     shape = shapefile.Reader(config["input_file"])
     prj_path = os.path.splitext(config["input_file"])[0] + ".prj"
@@ -79,6 +79,10 @@ def generate_map(config):
     print("Requesting data from OpenStreetMap API...")
 
     osm_api = OpenStreetMapAPI(target_epsg=shapefile_crs)
+    try:
+        features = osm_api.fetch_map_features(bounds, config, force_refresh=force_refresh)
+    finally:
+        osm_api.session.close()
 
     # Create a Map instance with the given configuration
     map_instance = Map(
@@ -95,7 +99,7 @@ def generate_map(config):
     )
 
     if config.get("map_peaks", False):
-        mountain_peaks = osm_api.fetch_mountain_peaks_in_projected_coordinates(bounds)
+        mountain_peaks = features["peaks"]
 
         mountain_peaks = list(filter(lambda x : x["elevation"], mountain_peaks))
         mountain_peaks = list(filter(lambda x : x["name"], mountain_peaks))
@@ -110,7 +114,7 @@ def generate_map(config):
         )
     
     if config.get("map_mountain_huts", False):
-        mountain_huts = osm_api.fetch_mountain_huts_in_projected_coordinates(bounds)
+        mountain_huts = features["huts"]
         map_instance.mountain_huts = mountain_huts
         map_instance.draw_mountain_huts(
             color=config.get("map_mountain_hut_color", "black"),
@@ -119,16 +123,7 @@ def generate_map(config):
         )
     
     if config.get("map_settlements", False):
-        settlements = osm_api.fetch_settlements_in_projected_coordinates(
-            bounds,
-            city=config.get("map_city", True),
-            town=config.get("map_town", True),
-            suburb=config.get("map_suburb", True),
-            village=config.get("map_village", True),
-            neighbourhood=config.get("map_neighbourhood", True),
-            hamlet=config.get("map_hamlet", False),
-            isolated_dwelling=config.get("map_isolated_dwelling", False),
-        )
+        settlements = features["settlements"]
         map_instance.settlements = settlements
         map_instance.draw_settlements(
             color=config.get("map_settlement_color", "black"),
@@ -137,50 +132,24 @@ def generate_map(config):
         )
 
     if config.get("map_railways", False):
-        railways = osm_api.fetch_railways_in_projected_coordinates(bounds)
+        railways = features["railways"]
         map_instance.railways = railways
         map_instance.draw_railways()
     
     if config.get("map_streets", False):
-        streets = osm_api.fetch_streets_in_projected_coordinates(
-            bounds,
-            motorway=config.get("map_motorway", True),
-            trunk=config.get("map_trunk", True),
-            primary=config.get("map_primary", True),
-            secondary=config.get("map_secondary", True),
-            tertiary=config.get("map_tertiary", True),
-            residential=config.get("map_residential", False),
-            service=config.get("map_service", False),
-            path=config.get("map_path", False),
-            footway=config.get("map_footway", False),
-            track=config.get("map_track", False),
-        )
+        streets = features["streets"]
         map_instance.streets = streets
         map_instance.draw_streets()
     
     if config.get("map_waterways", False):
-        waterways = osm_api.fetch_waterways_in_projected_coordinates(
-            bounds,
-            river=config.get("map_waterway_river", True),
-            stream=config.get("map_waterway_stream", True),
-            canal=config.get("map_waterway_canal", True),
-            ditch=config.get("map_waterway_ditch", False),
-            drain=config.get("map_waterway_drain", False),
-        )
+        waterways = features["waterways"]
         map_instance.waterways = waterways
         map_instance.draw_waterways(
             color=config.get("map_waterway_color", "0.75")
         )
     
     if config.get("map_water", False):
-        water = osm_api.fetch_water_in_projected_coordinates(
-            bounds,
-            lake=config.get("map_water_lake", True),
-            reservoir=config.get("map_water_reservoir", True),
-            river=config.get("map_water_river", True),
-            canal=config.get("map_water_canal", False),
-            lock=config.get("map_water_lock", False),
-        )
+        water = features["water"]
         map_instance.water = water
         map_instance.draw_water(
             color=config.get("map_water_color", "0.75"),
@@ -221,16 +190,17 @@ def load_config(config_file):
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Generate map image.')
     parser.add_argument('--config', type=str, required=True, help='Path to the configuration file.')
+    parser.add_argument('--refresh-osm', action='store_true', help='Bypass the OSM cache and download fresh data.')
     return parser.parse_args()
 
-def main(config_file):
+def main(config_file, refresh_osm=False):
     config = load_config(config_file)
 
     if config.get("generate_map", False):
-        generate_map(config)
+        generate_map(config, force_refresh=refresh_osm)
     else:
         print("Map generation is disabled in the configuration.")
 
 if __name__ == "__main__":
     args = parse_arguments()
-    main(args.config)
+    main(args.config, refresh_osm=args.refresh_osm)

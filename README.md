@@ -67,6 +67,42 @@ A Python-based tool for generating simple maps. Intended for grayscale laser eng
 
 3. Generate your map and find the output in the `outputs/` folder
 
+#### OpenStreetMap downloads and cache
+
+Each map fetches its enabled OSM features in one combined Overpass request.
+Peaks and settlements receive coordinates and tags, huts receive centers, and
+roads, railways, waterways, and water polygons receive geometry. Requests remain
+sequential, including in bulk mode.
+
+`osm_cache_enabled: true` (the default) reuses downloaded geographic data for
+**seven days**. The cache lives in `.cache/osm/` under the repository and is
+excluded from Git. Changes to fonts, DPI, GPX styling, or projection can reuse
+an entry when the geographic bounds and requested features are unchanged.
+Changing the AOI or enabled feature subtypes requires a different download.
+
+Click **Refresh OSM Data** to generate the current map or bulk batch with fresh
+OSM data. This action bypasses cached reads and updates successful downloads;
+it does not save a refresh flag in your configuration. For the map CLI:
+
+```bash
+python3 src/generate_map.py --config src/config/default_config.yaml --refresh-osm
+```
+
+Disable `osm_cache_enabled` in Input/Output Settings to bypass cache reads and
+writes. A failed refresh reports an error and leaves the previous cache intact;
+stale data is not silently used. Corrupt entries trigger a new download, and
+cache filesystem problems are logged without losing downloaded data. Delete
+`.cache/osm/` if you want to clear all cached data.
+
+The terminal reports cache hits/misses, selected features, response timing, and
+each actual retry. Downloads make at most **three attempts**, with a 10-second
+connection timeout, a 60-second read timeout, and a 45-second Overpass query
+execution timeout. Connection/read timeouts are not a total download deadline.
+Transient errors use exponential backoff or the server's `Retry-After`; delays
+above 60 seconds stop the run and ask you to retry later. Invalid or partial
+responses are rejected and never cached. The first download still depends on
+Overpass server load.
+
 #### GPS track overlay
 
 Select an optional `gpx_file` in Input/Output Settings to draw its track segments

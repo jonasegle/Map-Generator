@@ -27,6 +27,7 @@ PARAMETER_DESCRIPTIONS = {
     "opentopo_api_key": "Your OpenTopography API key (get from https://portal.opentopography.org)",
     "prefer_etrs89_in_europe": "Use ETRS89 (EPSG:258xx) for European coordinates instead of WGS84 UTM",
     "output_folder": "Output folder where generated map images will be saved",
+    "osm_cache_enabled": "Reuse downloaded OSM data for seven days. Refresh OSM Data forces a fresh download.",
     "gpx_file": "Optional GPX track file (.gpx) rendered as a black line on the map",
     "gpx_line_thickness": "GPS track line width in points (1 point = 1/72 inch). Must be positive.",
     "scale": "Map scale denominator: 100000 means 1:100,000 (1 cm = 1 km). Applies to AOI dimensions and all map coordinates, including GPX tracks. Must be positive.",
@@ -64,7 +65,7 @@ PARAMETER_DESCRIPTIONS = {
 }
 
 PARAM_GROUPS = {
-            "Input/Output Settings": ["input_file", "input_folder", "use_bulk", "rasterfile", "output_folder", "gpx_file"],
+            "Input/Output Settings": ["input_file", "input_folder", "use_bulk", "rasterfile", "output_folder", "gpx_file", "osm_cache_enabled"],
             "AOI Generation": ["generate_aoi", "aoi_name", "aoi_shape_type", "aoi_center_coords", "aoi_crs_epsg", "scale", "aoi_dimension1_mm", "aoi_dimension2_mm", "save_generated_shapefile", "save_geojson"],
             "Map Generation": [
                 "generate_map", "gpx_line_thickness",
@@ -132,12 +133,14 @@ class ConfigEditor(QMainWindow):
         buttons = QHBoxLayout(self.actions)
         buttons.setContentsMargins(0, 0, 0, 0)
         self.generate_button = QPushButton('Generate Map')
-        self.generate_button.clicked.connect(self.generate_data)
+        self.generate_button.clicked.connect(lambda: self.generate_data())
+        self.refresh_osm_button = QPushButton('Refresh OSM Data')
+        self.refresh_osm_button.clicked.connect(lambda: self.generate_data(force_refresh=True))
         self.save_button = QPushButton('Save Config')
         self.save_button.clicked.connect(self.save_config)
         self.save_as_button = QPushButton('Save Config As...')
         self.save_as_button.clicked.connect(self.open_save_dialog)
-        for button in (self.generate_button, self.save_button, self.save_as_button):
+        for button in (self.generate_button, self.refresh_osm_button, self.save_button, self.save_as_button):
             buttons.addWidget(button)
         buttons.addStretch()
         layout.addWidget(self.actions)
@@ -183,6 +186,7 @@ class ConfigEditor(QMainWindow):
             # Restore the selection associated with the displayed configuration.
             self.config_dropdown.setCurrentText(getattr(self, 'loaded_filename', ''))
             return
+        data.setdefault('osm_cache_enabled', True)
         data.setdefault('gpx_file', data.get('gpxfile', ''))
         data.setdefault('gpx_line_thickness', DEFAULT_LINE_THICKNESS)
         self.loaded_filename = filename
@@ -415,7 +419,7 @@ class ConfigEditor(QMainWindow):
             self.load_config_files()
             self.config_dropdown.setCurrentText(filename)
 
-    def generate_data(self):
+    def generate_data(self, force_refresh=False):
         if self.running:
             return
         if not getattr(self, 'loaded_filename', ''):
@@ -425,7 +429,7 @@ class ConfigEditor(QMainWindow):
             return
         self.set_running(True)
         self.thread = QThread(self)
-        self.worker = GenerationWorker(self.config_data)
+        self.worker = GenerationWorker(self.config_data, force_refresh=force_refresh)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
         self.worker.status.connect(self.status_label.setText)

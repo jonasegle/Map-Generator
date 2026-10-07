@@ -63,7 +63,7 @@ def prepare_aoi(config, scratch, root):
     return str(root / saved_input) if saved_input else str(source), saved_input
 
 
-def run_generation(config, status=print, root=PROJECT_ROOT):
+def run_generation(config, status=print, root=PROJECT_ROOT, force_refresh=False):
     """Run immutable per-item snapshots and always clean temporary resources."""
     config = deepcopy(config)
     root = Path(root)
@@ -95,8 +95,11 @@ def run_generation(config, status=print, root=PROJECT_ROOT):
             temp_config = Path(scratch) / 'processing.yaml'
             try:
                 temp_config.write_text(yaml.safe_dump(item), encoding='utf-8')
+                command = [sys.executable, str(root / 'src' / 'generate_map.py'), '--config', str(temp_config)]
+                if force_refresh:
+                    command.append('--refresh-osm')
                 result = subprocess.run(
-                    [sys.executable, str(root / 'src' / 'generate_map.py'), '--config', str(temp_config)],
+                    command,
                     cwd=str(root), check=False,
                 )
                 if result.returncode:
@@ -117,14 +120,19 @@ class GenerationWorker(QObject):
     failed = Signal(str)
     finished = Signal()
 
-    def __init__(self, config):
+    def __init__(self, config, force_refresh=False):
         super().__init__()
         self.config = deepcopy(config)
+        self.force_refresh = force_refresh
 
     @Slot()
     def run(self):
         try:
-            self.completed.emit(run_generation(self.config, self.status.emit))
+            if self.force_refresh:
+                result = run_generation(self.config, self.status.emit, force_refresh=True)
+            else:
+                result = run_generation(self.config, self.status.emit)
+            self.completed.emit(result)
         except Exception as exc:
             self.failed.emit(str(exc))
         finally:
